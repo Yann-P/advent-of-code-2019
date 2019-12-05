@@ -4,12 +4,11 @@ const fs = require('fs')
 import * as _ from 'lodash'
 const data = fs.readFileSync('./data/5_1.txt', { encoding: 'utf-8' })
 
+// PUZZLE INPUT
 let state = data.split(',').map((v: string)=>+v)
-
 const INPUT = 5
 
 type State = number[];
-
 const modes = [0, 1] as const;
 type Mode = typeof modes[number];
 
@@ -23,71 +22,52 @@ function nParams(opCode: number) {
 	}
 }
 
-function val(s: State, p: number, m: Mode): number {
+function getValue(s: State, p: number, m: Mode): number {
 	const res = m == 0 ? s[s[p]] : s[p];
-	(typeof res === 'undefined') && console.trace(`val(s, ${p}, ${m}) is undefined`)
+	(typeof res === 'undefined') && console.trace(`getValue(s, ${p}, ${m}) is undefined`)
 	return res;
 }
 
-function applyOp(s: State, pos: number, logger: number[]): { length: number; jump?: number, end?: boolean} { // return last op length or -1 for end
-	const fullOp = s[pos];
+function applyOp(state: State, pos: number, logger: number[]): { length: number; jump?: number, end?: boolean} { // return last op length or -1 for end
+	const fullOp = state[pos];
 	(typeof fullOp === 'undefined') && console.trace(`No full op code at position ${pos}`);
 
 	const [op, modes] = parseOpCode(fullOp);
 
-	if(op == 3) { // input
-		s[val(s, pos + 1, 1)] = INPUT
-		return { length: 2 }
-	}
-	if(op == 4) { // output
-		logger.push(val(s, pos + 1, modes[0]))
-		return { length: 2 }
-	}
-	if(op == 5) { // jump if true
-		const length = 3;
-		const param1 = val(s, pos + 1, modes[0])
-		const param2 = val(s, pos + 2, modes[1])
-		if(param1 !== 0) {
-			return { length, jump: param2 }
-		}
-		return { length }
-	}
-	if(op == 6) { // jump if false
-		const length = 3;
-		const param1 = val(s, pos + 1, modes[0])
-		const param2 = val(s, pos + 2, modes[1])
-		if(param1 === 0) {
-			return { length, jump: param2 }
-		}
-		return { length }
-	}
-	if(op == 7) { // less than
-		const param1 = val(s, pos + 1, modes[0])
-		const param2 = val(s, pos + 2, modes[1])
-		const param3 = val(s, pos + 3, 1)
-		s[param3] = +(param1 < param2);
-		return { length: 4 }
-	}
-	if(op == 8) { // equals
-		const param1 = val(s, pos + 1, modes[0])
-		const param2 = val(s, pos + 2, modes[1])
-		const param3 = val(s, pos + 3, 1)
-		s[param3] = +(param1 === param2);
-		return { length: 4 }
-	}
-	if(op == 99) {
-		return { length: 1, end: true }
-	}
+	const val = (i: number, mode?: Mode) => getValue(state, pos + i, typeof mode !== 'undefined' ? mode : modes[i - 1]);
+	const set = (i: number, v: number) => state[val(i, 1)] = v;
 
-	// + et *
-	s[val(s, pos + 3, 1)] = getOpFn(op)(val(s, pos + 1, modes[0]), val(s, pos + 2, modes[1]))
-	return { length: 4 }
+	switch(op) { 
+	case 3: // input
+		set(1, INPUT)
+		return { length: 2 }
+	case 4: // output
+		logger.push(val(1))
+		return { length: 2 }
+	case 5: // jump if true
+		if(val(1) !== 0) {
+			return { length: 3, jump: val(2) }
+		}
+		return { length: 3 }
+	case 6: // jump if false
+		if(val(1) === 0) {
+			return { length: 3, jump: val(2) }
+		}
+		return { length: 3 }
+	case 99:
+		return { length: 1, end: true }
+	default: // <, ===, + et *
+		set(3, getOpFn(op)(val(1), val(2)))
+		return { length: 4 }
+	}
 }
 
 function getOpFn(op: number) {
 	switch(op) {
 		case 1: return (x: number, y: number) => x + y;
 		case 2: return (x: number, y: number) => x * y;
+		case 7: return (x: number, y: number) => +(x<y)
+		case 8: return (x: number, y: number) => +(x===y)
 		default: throw new Error(`Unknown op ${op}`);
 	}
 }
