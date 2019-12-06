@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
         "strict": true,
-        "strictNullChecks": true
+        "strictNullChecks": true,
+        "downlevelIteration": true
     }
 }
